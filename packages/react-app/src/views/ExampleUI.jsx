@@ -1,12 +1,35 @@
 import { SyncOutlined } from "@ant-design/icons";
 import { utils } from "ethers";
-import { Button, Card, DatePicker, Divider, Input, List, Progress, Slider, Spin, Switch } from "antd";
-import React, { useState } from "react";
+import { Button, Card, DatePicker, Divider, Input, Row, Progress, Slider, Spin, Switch, Col, InputNumber } from "antd";
+import React, { useState, useEffect } from "react";
 import { Address, Balance } from "../components";
+import { useContractReader } from "../hooks";
+import Unity, { UnityContext } from "react-unity-webgl";
+const { ethers } = require("ethers");
+const unityContext = new UnityContext({
+  loaderUrl: "unity/Build/CrabbyUnity.loader.js",
+  dataUrl: "unity/Build/CrabbyUnity.data",
+  frameworkUrl: "unity/Build/CrabbyUnity.framework.js",
+  codeUrl: "unity/Build/CrabbyUnity.wasm",
+});
+function MintCrabbyUnity() {
+  console.log("mint crabby");
+  unityContext.send("controller", "mintCrabby");
+}
+function balanceCrabby(balance) {
+  console.log(balance);
+  for (let i = 0; i < balance / 1e18; i++) {
+    MintCrabbyUnity();
+  }
+}
+function EtherBalanceToUnity(amount) {
+  console.log(`EtherBalanceToUnity ${amount}`);
+  unityContext.send("controller", "showBalance", amount);
+}
 
 export default function ExampleUI({
-  purpose,
-  setPurposeEvents,
+  //purpose,
+  // setPurposeEvents,
   address,
   mainnetProvider,
   localProvider,
@@ -16,29 +39,109 @@ export default function ExampleUI({
   readContracts,
   writeContracts,
 }) {
-  const [newPurpose, setNewPurpose] = useState("loading...");
-
+  unityContext.on("MintCrabbyFromUnity", () => {
+    const result = tx(writeContracts.YourContract.airDrop(), update => {
+      console.log("📡 Transaction Update:", update);
+      if (update && (update.status === "confirmed" || update.status === 1)) {
+        console.log(" 🍾 Transaction " + update.hash + " finished!");
+        console.log(
+          " ⛽️ " +
+            update.gasUsed +
+            "/" +
+            (update.gasLimit || update.gas) +
+            " @ " +
+            parseFloat(update.gasPrice) / 1000000000 +
+            " gwei",
+        );
+        MintCrabbyUnity();
+      }
+    });
+    console.log("awaiting metamask/web3 confirm result...", result);
+  });
+  const [connected, setConnected] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [newBalance, SetNewBalance] = useState("0");
+  const getBalance = useContractReader(writeContracts, "YourContract", "balanceOf", [address]);
+  useEffect(() => {
+    unityContext.on("canvas", function () {
+      setIsLoaded(true);
+    });
+  }, [newBalance]);
+  const [recipeintAddress, setRecipeintAddress] = useState("");
+  const [amount, setNewAmount] = useState(0);
   return (
     <div>
+      {/* {newBalance &&  unityContext.send("controller", "showBalance", newBalance.toString() / 1e18)} */}
+      {/* {isLoaded &&  unityContext.send("controller", "mintCrabby")} */}
+      {/* {isLoaded && timeout} */}
+      {/* {isLoaded && myMainnetGLDBalance && } */}
+      {/* {isLoaded && unityContext.send("controller", "showBalance", myMainnetGLDBalance / 1e18)} */}
+      {/* {myMainnetGLDBalance && unityContext.send("controller", "showBalance", myMainnetGLDBalance / 1e18)} */}
       {/*
         ⚙️ Here is an example UI that displays and sets the purpose in your smart contract:
       */}
-      <div style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}>
-        <h2>Example UI:</h2>
-        <h4>purpose: {purpose}</h4>
-        <Divider />
-        <div style={{ margin: 8 }}>
-          <Input
-            onChange={e => {
-              setNewPurpose(e.target.value);
-            }}
-          />
-          <Button
+      <div style={{ border: "1px solid #cccccc", padding: 16, width: 1024, margin: "auto", marginTop: 64 }}>
+        {/* {isLoaded && getBalance && unityContext.send("controller", "showBalance", getBalance.toString() / 1e18)}
+        {isLoaded && getBalance && console.log(`showBalance${ getBalance.toString() / 1e18}`)} */}
+        <>
+          <Row>
+            <Col span={6}>
+              <Button
+                style={{ marginTop: 8 }}
+                onClick={async () => {
+                  unityContext.send("controller", "showBalance", getBalance.toString() / 1e18);
+                  setConnected(true);
+                }}
+              >
+                Connect to Unity
+              </Button>
+            </Col>
+            {connected && (
+              <>
+                <Col span={6}>
+                  <h2>Contract Address:</h2>
+                </Col>
+                <Col span={6}>
+                  <Address
+                    address={readContracts && readContracts.YourContract ? readContracts.YourContract.address : null}
+                    ensProvider={mainnetProvider}
+                    fontSize={24}
+                  />
+                </Col>
+                <Col span={6}>{getBalance && <h2>Balance: {ethers.utils.formatEther(getBalance.toString())}</h2>}</Col>
+              </>
+            )}
+          </Row>
+          <Divider />
+        </>
+        <Unity unityContext={unityContext} />
+        {/* <Divider />
+        <Button
+          style={{ marginTop: 8 }}
+          onClick={async () => {
+            unityContext.send("controller", "mintCrabby");
+          }}
+        >
+          MintCrabby
+        </Button> */}
+        {}
+
+        {/* <Button
+          style={{ marginTop: 8 }}
+          onClick={async () => {
+            unityContext.send("controller", "destroyCrabby");
+          }}
+        >
+          DestroyCrabby
+        </Button> */}
+        {/* <h2>Example UI:</h2>
+        {getBalance && <h4>Balance: {ethers.utils.formatEther(getBalance.toString())}</h4>}
+        <Divider /> */}
+        {/* <div style={{ margin: 8 }}> */}
+        {/* <Button
             style={{ marginTop: 8 }}
             onClick={async () => {
-              /* look how you call setPurpose on your contract: */
-              /* notice how you pass a call back for tx updates too */
-              const result = tx(writeContracts.YourContract.setPurpose(newPurpose), update => {
+              const result = tx(writeContracts.YourContract.airDrop(), update => {
                 console.log("📡 Transaction Update:", update);
                 if (update && (update.status === "confirmed" || update.status === 1)) {
                   console.log(" 🍾 Transaction " + update.hash + " finished!");
@@ -51,177 +154,116 @@ export default function ExampleUI({
                       parseFloat(update.gasPrice) / 1000000000 +
                       " gwei",
                   );
+                  SetNewBalance(myMainnetGLDBalance.toString());
                 }
               });
               console.log("awaiting metamask/web3 confirm result...", result);
-              console.log(await result);
             }}
           >
-            Set Purpose!
-          </Button>
-        </div>
-        <Divider />
-        Your Address:
-        <Address address={address} ensProvider={mainnetProvider} fontSize={16} />
-        <Divider />
-        ENS Address Example:
-        <Address
-          address="0x34aA3F359A9D614239015126635CE7732c18fDF3" /* this will show as austingriffith.eth */
-          ensProvider={mainnetProvider}
-          fontSize={16}
-        />
-        <Divider />
-        {/* use utils.formatEther to display a BigNumber: */}
-        <h2>Your Balance: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."}</h2>
-        <div>OR</div>
-        <Balance address={address} provider={localProvider} price={price} />
-        <Divider />
-        <div>🐳 Example Whale Balance:</div>
-        <Balance balance={utils.parseEther("1000")} provider={localProvider} price={price} />
-        <Divider />
-        {/* use utils.formatEther to display a BigNumber: */}
-        <h2>Your Balance: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."}</h2>
-        <Divider />
-        Your Contract Address:
-        <Address
-          address={readContracts && readContracts.YourContract ? readContracts.YourContract.address : null}
-          ensProvider={mainnetProvider}
-          fontSize={16}
-        />
-        <Divider />
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /* look how you call setPurpose on your contract: */
-              tx(writeContracts.YourContract.setPurpose("🍻 Cheers"));
+            Air drop!
+          </Button> */}
+        {/* </div>
+        <Divider /> */}
+        {/* <div style={{ margin: 8 }}> */}
+        {/* <Input
+            onChange={e => {
+              setAddres(e.target.value);
+            }}
+          /> */}
+        {/* <Button
+            style={{ marginTop: 8 }}
+            onClick={async () => {
+              SetNewBalance(myMainnetGLDBalance.toString());
+              console.log(myMainnetGLDBalance.toString());
+              if (newBalance != "0") {
+                console.log(newBalance / 1e18);
+                for (let i = 0; i < newBalance / 1e18; i++) {
+                  MintCrabbyUnity();
+                  console.log(i);
+                  // more statements
+                }
+              }
             }}
           >
-            Set Purpose to &quot;🍻 Cheers&quot;
-          </Button>
-        </div>
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /*
-              you can also just craft a transaction and send it to the tx() transactor
-              here we are sending value straight to the contract's address:
-            */
-              tx({
-                to: writeContracts.YourContract.address,
-                value: utils.parseEther("0.001"),
-              });
-              /* this should throw an error about "no fallback nor receive function" until you add it */
-            }}
-          >
-            Send Value
-          </Button>
-        </div>
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /* look how we call setPurpose AND send some value along */
-              tx(
-                writeContracts.YourContract.setPurpose("💵 Paying for this one!", {
-                  value: utils.parseEther("0.001"),
-                }),
-              );
-              /* this will fail until you make the setPurpose function payable */
-            }}
-          >
-            Set Purpose With Value
-          </Button>
-        </div>
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /* you can also just craft a transaction and send it to the tx() transactor */
-              tx({
-                to: writeContracts.YourContract.address,
-                value: utils.parseEther("0.001"),
-                data: writeContracts.YourContract.interface.encodeFunctionData("setPurpose(string)", [
-                  "🤓 Whoa so 1337!",
-                ]),
-              });
-              /* this should throw an error about "no fallback nor receive function" until you add it */
-            }}
-          >
-            Another Example
-          </Button>
-        </div>
-      </div>
-
-      {/*
-        📑 Maybe display a list of events?
-          (uncomment the event and emit line in YourContract.sol! )
-      */}
-      <div style={{ width: 600, margin: "auto", marginTop: 32, paddingBottom: 32 }}>
-        <h2>Events:</h2>
-        <List
-          bordered
-          dataSource={setPurposeEvents}
-          renderItem={item => {
-            return (
-              <List.Item key={item.blockNumber + "_" + item.sender + "_" + item.purpose}>
-                <Address address={item[0]} ensProvider={mainnetProvider} fontSize={16} />
-                {item[1]}
-              </List.Item>
-            );
-          }}
-        />
-      </div>
-
-      <div style={{ width: 600, margin: "auto", marginTop: 32, paddingBottom: 256 }}>
-        <Card>
-          Check out all the{" "}
-          <a
-            href="https://github.com/austintgriffith/scaffold-eth/tree/master/packages/react-app/src/components"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            📦 components
-          </a>
-        </Card>
-
-        <Card style={{ marginTop: 32 }}>
-          <div>
-            There are tons of generic components included from{" "}
-            <a href="https://ant.design/components/overview/" target="_blank" rel="noopener noreferrer">
-              🐜 ant.design
-            </a>{" "}
-            too!
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            <Button type="primary">Buttons</Button>
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            <SyncOutlined spin /> Icons
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            Date Pickers?
-            <div style={{ marginTop: 2 }}>
-              <DatePicker onChange={() => {}} />
+            Balance!
+          </Button> */}
+        {/* </div>
+        <Divider /> */}
+        {connected && (
+          <>
+            <div style={{ margin: 8 }}>
+              <h2>Transfer crabby token:</h2>
+              <Row>
+                <Col span={6}>
+                  <Slider
+                    min={0}
+                    max={getBalance / 1e18}
+                    onChange={e => {
+                      setNewAmount(e);
+                    }}
+                    value={typeof amount === "number" ? amount : 0}
+                  />
+                </Col>
+                <Col span={6}>
+                  <InputNumber
+                    min={0}
+                    max={getBalance / 1e18}
+                    // style={{ margin: "0 16px" }}
+                    value={typeof amount === "number" ? amount : 0}
+                    onChange={e => {
+                      setNewAmount(e);
+                    }}
+                  />
+                </Col>
+                <Col span={6}>
+                  <Input
+                    placeholder="Address"
+                    onChange={e => {
+                      setRecipeintAddress(e.target.value);
+                    }}
+                    value={recipeintAddress}
+                  />
+                </Col>
+                <Col span={6}>
+                  <Button
+                    // style={{ marginTop: 8 }}
+                    onClick={async () => {
+                      console.log(amount);
+                      console.log(recipeintAddress);
+                      const result = tx(
+                        writeContracts.YourContract.transfer(recipeintAddress, `${amount * 1e18}`),
+                        update => {
+                          console.log("📡 Transaction Update:", update);
+                          if (update && (update.status === "confirmed" || update.status === 1)) {
+                            console.log(" 🍾 Transaction " + update.hash + " finished!");
+                            console.log(
+                              " ⛽️ " +
+                                update.gasUsed +
+                                "/" +
+                                (update.gasLimit || update.gas) +
+                                " @ " +
+                                parseFloat(update.gasPrice) / 1000000000 +
+                                " gwei",
+                            );
+                            for (let i = 0; i < amount; i++) {
+                              unityContext.send("controller", "destroyCrabby");
+                              // more statements
+                            }
+                            // SetNewBalance(myMainnetGLDBalance.toString());
+                          }
+                        },
+                      );
+                      console.log("awaiting metamask/web3 confirm result...", result);
+                    }}
+                  >
+                    Send transcation
+                  </Button>
+                </Col>
+              </Row>
             </div>
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Slider range defaultValue={[20, 50]} onChange={() => {}} />
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Switch defaultChecked onChange={() => {}} />
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Progress percent={50} status="active" />
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Spin />
-          </div>
-        </Card>
+            <Divider />
+          </>
+        )}
       </div>
     </div>
   );
